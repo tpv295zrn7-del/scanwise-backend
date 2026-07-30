@@ -1,0 +1,29 @@
+# Render Blueprint — one-click deploy for the ScanWise API.
+# Push this repo to GitHub, then in Render:
+#   New + → Blueprint → point at this repo → Apply.
+# Render will create the web service, attach a persistent disk for the
+# SQLite DB, and give you a public *.onrender.com URL.
+
+services:
+  - type: web
+    name: scanwise-api
+    runtime: docker
+    rootDir: backend
+    plan: starter   # free tier; sleeps after 15min of inactivity
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: HOST
+        value: 0.0.0.0
+      - key: ALLOWED_ORIGINS
+        # Comma-separated list. Add your deployed web origin(s) here
+        # once the marketing site is live. For now, allow common dev
+        # and prod origins so the mobile app can call us.
+        value: "*"
+      - key: DB_PATH
+        value: /data/scanwise.db
+    disk:
+      name: scanwise-db
+      mountPath: /data
+      sizeGB: 1
