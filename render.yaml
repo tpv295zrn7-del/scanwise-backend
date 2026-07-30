@@ -16,7 +16,5 @@ services:
         value: /data/scanwise.db
       - key: ALLOWED_ORIGINS
         value: "*"
-    disk:
-      name: scanwise-data
-      mountPath: /data
-      sizeGB: 1
+
+   
