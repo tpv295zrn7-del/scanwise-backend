@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: scanwise-api
+    runtime: docker
+    rootDir: backend
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: HOST
+        value: 0.0.0.0
+      - key: DB_PATH
+        value: /data/scanwise.db
+      - key: ALLOWED_ORIGINS
+        value: "*"
+    disk:
+      name: scanwise-data
+      mountPath: /data
+      sizeGB: 1
