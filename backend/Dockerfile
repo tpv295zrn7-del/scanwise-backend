@@ -17,14 +17,13 @@ RUN npm ci --omit=dev
 FROM node:20-bookworm-slim AS runtime
 WORKDIR /app
 
-# Copy built node_modules and the seed data
+# Copy built node_modules and the server code
 COPY --from=builder /app/node_modules ./node_modules
 COPY server.js ./
 COPY package.json ./
-# Seed data is one level up, in /home/team/shared/data at dev time.
-# In the deployed image, copy the seed into the image so the DB is
-# initialised on first boot.
-COPY ../data/seed-data.json ./seed-data.json
+
+# Seed data is fetched from a URL on first boot (see SEED_URL in
+# server.js). No COPY needed here.
 
 ENV PORT=3000 \
     HOST=0.0.0.0 \
