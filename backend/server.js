@@ -10,7 +10,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'scanwise.db');
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim())
-  : '*';
+  : '*'; 
 
 // CORS — explicit allowlist in production, wildcard in dev
 app.use(
