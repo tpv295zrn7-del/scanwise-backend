@@ -129,6 +129,31 @@ if (count === 0) {
   }
 }
 
+// Available categories in the seed data.
+const SEED_CATEGORIES = ['cereal', 'drink', 'lunchbox', 'snack', 'yogurt'];
+
+// Map verbose / Open Food Facts style category strings to a
+// short, seed-compatible category. The matcher is case-insensitive
+// and tries substrings in order; the first hit wins.
+const CATEGORY_KEYWORDS = [
+  { match: ['cereal', 'oat', 'granola', 'muesli'], category: 'cereal' },
+  { match: ['yogurt', 'yoghurt', 'kefir', 'skyr'], category: 'yogurt' },
+  { match: ['lunch', 'sandwich', 'wrap', 'pita'], category: 'lunchbox' },
+  { match: ['juice', 'drink', 'beverage', 'soda', 'water', 'tea', 'kombucha'], category: 'drink' },
+  { match: ['snack', 'chip', 'cracker', 'bar', 'cookie', 'fruit', 'nut'], category: 'snack' }
+];
+function normaliseCategory(raw) {
+  if (!raw) return null;
+  const haystack = String(raw).toLowerCase();
+  // Already a seed category?
+  if (SEED_CATEGORIES.includes(haystack)) return haystack;
+  for (const { match, category } of CATEGORY_KEYWORDS) {
+    if (match.some((kw) => haystack.includes(kw))) {
+      return category;
+    }
+  }
+  return null; // unknown — caller will get 404 with helpful message
+}
 // Available goals
 const GOALS = [
   { id: 'lower_sugar', name: 'Lower Sugar', field: 'sugar_g', lower_is_better: true, weight: 1.0 },
