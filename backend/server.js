@@ -415,11 +415,7 @@ function handleAlternatives({ barcode, category, name, goals, res }) {
   res.json({
     original_barcode: product.barcode,
     original_name: product.name,
-    goals,
-    alternatives: top3.length > 0 ? top3 : [],
-    total_considered: sameCategory.length
-  });
-});
+   
 
 function computeTradeoffs(original, alternative, goals) {
   const origNut = typeof original.nutrition === 'string' ? JSON.parse(original.nutrition) : original.nutrition;
