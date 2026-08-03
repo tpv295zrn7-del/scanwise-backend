@@ -10,7 +10,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'scanwise.db');
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim())
-  : '*'; 
+  : '*';
 
 // CORS — explicit allowlist in production, wildcard in dev
 app.use(
@@ -154,6 +154,7 @@ function normaliseCategory(raw) {
   }
   return null; // unknown — caller will get 404 with helpful message
 }
+
 // Available goals
 const GOALS = [
   { id: 'lower_sugar', name: 'Lower Sugar', field: 'sugar_g', lower_is_better: true, weight: 1.0 },
@@ -330,9 +331,9 @@ app.get('/api/products/:barcode', (req, res) => {
   });
 });
 
-// GET /api/alternatives?barcode=...&category=...&name=...&goals=lower_sugar
+// GET /api/alternatives/:barcode?goals=sugar,protein&category=cereal
 //   or
-// POST /api/alternatives  body: { barcode, category, goals, name }
+// POST /api/alternatives  body: { barcode, category, goals, name, ... }
 //
 // Two ways the seed data is used:
 //   1. Exact barcode match: a product we know about by its UPC.
@@ -340,10 +341,10 @@ app.get('/api/products/:barcode', (req, res) => {
 //      we don't have. The caller passes the category (and ideally
 //      name) from Open Food Facts, and we recommend seed products
 //      in the same category ranked against the caller's goals.
-app.get('/api/alternatives', (req, res) => {
-  const goals = req.query.goals ? String(req.query.goals).split(',') : ['lower_sugar'];
+app.get('/api/alternatives/:barcode', (req, res) => {
+  const goals = req.query.goals ? req.query.goals.split(',') : ['lower_sugar'];
   return handleAlternatives({
-    barcode: req.query.barcode,
+    barcode: req.params.barcode,
     category: req.query.category,
     name: req.query.name,
     goals,
@@ -361,22 +362,25 @@ app.post('/api/alternatives', (req, res) => {
   });
 });
 function handleAlternatives({ barcode, category, name, goals, res }) {
+  // Try an exact match first.
   let product = barcode
     ? db.prepare('SELECT * FROM products WHERE barcode = ?').get(barcode)
     : null;
+  // No match — synthesise a "virtual" product from the caller's data
+  // so we can still score and rank against the seed.
   if (!product) {
     const normalised = normaliseCategory(category);
     if (!normalised) {
       return res.status(404).json({
         error: category
-          ? 'Unknown category. Add it to CATEGORY_KEYWORDS in server.js to enable recommendations.'
+          ? `Unknown category "${category}". Add it to CATEGORY_KEYWORDS in server.js to enable recommendations.`
           : 'Product not found in seed; pass ?category=... so we can fall back to category-based recommendations.',
         original_barcode: barcode || null,
         original_category: category || null
       });
     }
     product = {
-      barcode: barcode || 'unknown-' + Date.now(),
+      barcode: barcode || `unknown-${Date.now()}`,
       name: name || 'Scanned product',
       category: normalised,
       brand: null,
@@ -408,9 +412,6 @@ function handleAlternatives({ barcode, category, name, goals, res }) {
     total_considered: sameCategory.length
   });
 }
-
- 
-   
 
 function computeTradeoffs(original, alternative, goals) {
   const origNut = typeof original.nutrition === 'string' ? JSON.parse(original.nutrition) : original.nutrition;
