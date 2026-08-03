@@ -409,12 +409,7 @@ function handleAlternatives({ barcode, category, name, goals, res }) {
   });
 }
 
-  scored.sort((a, b) => b.match_score - a.match_score);
-  const top3 = scored.slice(0, 3);
-
-  res.json({
-    original_barcode: product.barcode,
-    original_name: product.name,
+ 
    
 
 function computeTradeoffs(original, alternative, goals) {
