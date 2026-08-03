@@ -330,17 +330,65 @@ app.get('/api/products/:barcode', (req, res) => {
   });
 });
 
-// GET /api/alternatives/:barcode?goals=sugar,protein
-app.get('/api/alternatives/:barcode', (req, res) => {
-  const product = db.prepare('SELECT * FROM products WHERE barcode = ?').get(req.params.barcode);
+// GET /api/alternatives?barcode=...&category=...&name=...&goals=lower_sugar
+//   or
+// POST /api/alternatives  body: { barcode, category, goals, name }
+//
+// Two ways the seed data is used:
+//   1. Exact barcode match: a product we know about by its UPC.
+//   2. Category fallback: a freshly-scanned product whose barcode
+//      we don't have. The caller passes the category (and ideally
+//      name) from Open Food Facts, and we recommend seed products
+//      in the same category ranked against the caller's goals.
+app.get('/api/alternatives', (req, res) => {
+  const goals = req.query.goals ? String(req.query.goals).split(',') : ['lower_sugar'];
+  return handleAlternatives({
+    barcode: req.query.barcode,
+    category: req.query.category,
+    name: req.query.name,
+    goals,
+    res
+  });
+});
+app.post('/api/alternatives', (req, res) => {
+  const { barcode, category, name, goals } = req.body || {};
+  return handleAlternatives({
+    barcode,
+    category,
+    name,
+    goals: Array.isArray(goals) && goals.length ? goals : ['lower_sugar'],
+    res
+  });
+});
+function handleAlternatives({ barcode, category, name, goals, res }) {
+  let product = barcode
+    ? db.prepare('SELECT * FROM products WHERE barcode = ?').get(barcode)
+    : null;
   if (!product) {
-    return res.status(404).json({ error: 'Product not found' });
+    const normalised = normaliseCategory(category);
+    if (!normalised) {
+      return res.status(404).json({
+        error: category
+          ? 'Unknown category. Add it to CATEGORY_KEYWORDS in server.js to enable recommendations.'
+          : 'Product not found in seed; pass ?category=... so we can fall back to category-based recommendations.',
+        original_barcode: barcode || null,
+        original_category: category || null
+      });
+    }
+    product = {
+      barcode: barcode || 'unknown-' + Date.now(),
+      name: name || 'Scanned product',
+      category: normalised,
+      brand: null,
+      nutrition: JSON.stringify({}),
+      ingredients: JSON.stringify([]),
+      category_subtype: null,
+      estimated_price: null,
+      confidence: 'unknown',
+      is_virtual: 1
+    };
   }
-
-  const goals = req.query.goals ? req.query.goals.split(',') : ['lower_sugar'];
   const sameCategory = db.prepare('SELECT * FROM products WHERE category = ? AND barcode != ?').all(product.category, product.barcode);
-
-  // Score and rank alternatives
   const scored = sameCategory.map(p => ({
     ...p,
     nutrition: JSON.parse(p.nutrition),
@@ -348,6 +396,18 @@ app.get('/api/alternatives/:barcode', (req, res) => {
     match_score: computeScore(p, goals),
     tradeoffs: computeTradeoffs(product, p, goals)
   }));
+  scored.sort((a, b) => b.match_score - a.match_score);
+  const top3 = scored.slice(0, 3);
+  res.json({
+    original_barcode: product.barcode,
+    original_name: product.name,
+    original_category: product.category,
+    is_virtual: product.is_virtual === 1,
+    goals,
+    alternatives: top3,
+    total_considered: sameCategory.length
+  });
+}
 
   scored.sort((a, b) => b.match_score - a.match_score);
   const top3 = scored.slice(0, 3);
